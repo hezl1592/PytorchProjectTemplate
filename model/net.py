@@ -147,7 +147,7 @@ class parsingNet(nn.Module):
         initialize_weights(self.laneAtrr)
 
     def forward(self, x):
-        time1 = time.time()
+        # time1 = time.time()
         x2, x3_, fea = self.model(x)
         # 32(8), 96(16), 1280(32)
         # print("1: {:.6f}sec".format(time.time() - time1))
@@ -198,11 +198,11 @@ if __name__ == '__main__':
     with torch.no_grad():
         for i in range(10):
             input_tensor = input_tensor.cuda()
-            init_time = time.time()
+            # init_time = time.time()
             out = model(input_tensor)
 
             # list(map(printsize, out))
-            print("{:.4f}sec".format(time.time() - init_time))
+            # print("{:.4f}sec".format(time.time() - init_time))
 
     from model.model_utils import modelParams_FLOPs, modelTime
 
