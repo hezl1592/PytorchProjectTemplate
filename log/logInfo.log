@@ -1,0 +1,19 @@
+2020-07-15 13:56:42 | train | -INFO   - |  GPU found, device: cuda, number: 3.
+2020-07-15 13:57:05 | train | -INFO   - |  GPU found, device: cuda, number: 3.
+2020-07-15 13:57:32 | train | -INFO   - |  GPU found, device: cuda, number: 3.
+2020-07-15 14:14:39 | train | -INFO   - |  GPU found, device: cuda, number: 3.
+2020-07-15 14:14:51 | train | -INFO   - |  GPU found, device: cuda, number: 3.
+2020-07-15 14:17:37 | train | -INFO   - |  GPU found, device: cuda, number: 3.
+2020-07-15 14:18:13 | train | -INFO   - |  GPU found, device: cuda, number: 3.
+2020-07-15 14:20:20 | train | -INFO   - |  GPU found, device: cuda, number: 3.
+2020-07-15 14:30:42 | train | -INFO   - |  GPU found, device: cuda, number: 3.
+2020-07-15 14:34:35 | train | -INFO   - |  GPU found, device: cuda, number: 3.
+2020-07-15 14:35:17 | train | -INFO   - |  GPU found, device: cuda, number: 3.
+2020-07-15 14:45:14 | train | -INFO   - |  GPU found, device: cuda, number: 3.
+2020-07-15 14:50:21 | train | -INFO   - |  GPU found, device: cuda, number: 3.
+2020-07-15 14:52:18 | train | -INFO   - |  GPU found, device: cuda, number: 3.
+2020-07-15 14:52:35 | train | -INFO   - |  GPU found, device: cuda, number: 3.
+2020-07-15 15:00:28 | train | - [32m[1m  INFO [0m - GPU found, device: cuda, number: 3.
+2020-07-15 15:01:22 | train | - [33m[1mWARNING[0m - xxxxxxxxxxxxxx
+2020-07-15 15:01:22 | train | - [31m[1m ERROR [0m - ccccccccc
+2020-07-15 15:01:23 | train | - [32m[1m  INFO [0m - GPU found, device: cuda, number: 3.
