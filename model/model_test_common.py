@@ -6,7 +6,7 @@ import os
 import torch
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "2"
-inputTensor = torch.rand(1, 3, 244, 244)
+inputTensor = torch.rand(1, 3, 360, 640)
 
 
 def printNet(model):

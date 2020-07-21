@@ -147,27 +147,16 @@ class parsingNet(nn.Module):
         initialize_weights(self.laneAtrr)
 
     def forward(self, x):
-        # time1 = time.time()
         x2, x3_, fea = self.model(x)
-        # 32(8), 96(16), 1280(32)
-        # print("1: {:.6f}sec".format(time.time() - time1))
 
         if self.use_aux:
             x2 = self.aux_header2(x2)
-            # print("1:", x2.size())
             x3 = self.aux_header3(x3_)
-            # print("2:", x3.size())
             x3 = torch.nn.functional.interpolate(x3, size=x2.shape[2:], mode='bilinear', align_corners=True)
             x4 = self.aux_header4(fea)
-            # print("3:", x4.size())
             x4 = torch.nn.functional.interpolate(x4, size=x2.shape[2:], mode='bilinear', align_corners=True)
-            # print("1:", x2.size())
-            # print("2:", x3.size())
-            # print("3:", x4.size())
             aux_seg_ = torch.cat([x2, x3, x4], dim=1)
-            # print("4:", aux_seg_.size())
             aux_seg = self.aux_combine(aux_seg_)
-            # print("out:", aux_seg.size())
         else:
             aux_seg = None
 
@@ -177,37 +166,25 @@ class parsingNet(nn.Module):
         seg_map = self.segmaxpool2(aux_seg_)
 
         seg_map = torch.cat([x3_, seg_map], dim=1)
-        # print("segsize:", seg_map.size())
-        # print(seg_map.size())
-
         type_cls = self.laneAtrr(seg_map)
         type_cls = type_cls.view(-1, 2, 16)
-        # print(type_cls.shape)
-        # 32(8), 96(16), 1280(32)
+
         if self.use_aux:
             return group_cls, aux_seg, type_cls
 
         return group_cls, type_cls
 
+
 if __name__ == '__main__':
     from model.model_test_common import *
-    model = parsingNet(cls_dim=(201, 32, 4), use_aux=True).cuda()
-    printNet(model)
-    model.eval()
-    printsize = lambda x: print(x.shape, end=' ')
-    with torch.no_grad():
-        for i in range(10):
-            input_tensor = input_tensor.cuda()
-            # init_time = time.time()
-            out = model(input_tensor)
 
-            # list(map(printsize, out))
-            # print("{:.4f}sec".format(time.time() - init_time))
+    model = parsingNet(cls_dim=(201, 32, 4), use_aux=True).cuda()
 
     from model.model_utils import modelParams_FLOPs, modelTime
 
-    modelParams_FLOPs(model, input_tensor)
+    modelParams_FLOPs(model, inputTensor)
+    modelTime(model, inputTensor)
     # modelParams_FLOPs()
 
-    net = MobileNetV2_3feature()
-    modelParams_FLOPs(net, input_tensor)
+    # net = MobileNetV2_3feature()
+    # modelParams_FLOPs(net, inputTensor)
