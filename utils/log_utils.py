@@ -18,14 +18,12 @@ def infoLogger(log_dir='log', name='Model'):
 
     logger = getLogger(name)
     logger.setLevel(DEBUG)
-    fmt_print = Formatter('%(asctime)s | %(name)s | \033[34m\033[1m-%(levelname)-7s- \033[0m |  %(message)s',
-                    datefmt='%Y-%m-%d %H:%M:%S')
-    fmt_log = Formatter('%(asctime)s | %(name)s | -%(levelname)-7s- |  %(message)s',
+    fmt_log = Formatter('%(asctime)s | %(name)s | -%(levelname)-4s- |  %(message)s',
                           datefmt='%Y-%m-%d %H:%M:%S')
 
     sh = StreamHandler()
     sh.setLevel(DEBUG)
-    sh.setFormatter(fmt_print)
+    sh.setFormatter(fmt_log)
     logger.addHandler(sh)
 
     # fh = FileHandler(filename=log_dir.joinpath('debug.txt'), mode='w')
