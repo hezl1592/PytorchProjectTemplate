@@ -12,6 +12,9 @@ def getArgs(argv):
     # print(sys.argv)
     parser = argparse.ArgumentParser()
 
+    # main
+    parser.add_argument("--model", default="deeplabv3+", type=str, help="model name")
+
     # dir
     parser.add_argument("--log_dir", default="../checkpoints", type=str, help='path to checkpoint to store')
 
