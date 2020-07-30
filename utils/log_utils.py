@@ -12,9 +12,9 @@ import os
 #     default_time_format = '%Y-%m-%d %H:%M:%S'
 #     default_msec_format = '%s.%03d'
 
-def infoLogger(log_dir='log', name='Model'):
-    if not os.path.exists(log_dir):
-        os.makedirs(log_dir, exist_ok=True)
+def infoLogger(logdir='log', name='Model'):
+    if not os.path.exists(logdir):
+        os.makedirs(logdir, exist_ok=True)
 
     logger = getLogger(name)
     logger.setLevel(DEBUG)
@@ -26,8 +26,8 @@ def infoLogger(log_dir='log', name='Model'):
     sh.setFormatter(fmt_log)
     logger.addHandler(sh)
 
-    # fh = FileHandler(filename=log_dir.joinpath('debug.txt'), mode='w')
-    debugFile = os.path.join(log_dir, 'logInfo.log')
+    # fh = FileHandler(filename=logdir.joinpath('debug.txt'), mode='w')
+    debugFile = os.path.join(logdir, 'logInfo.log')
     fh = FileHandler(debugFile, mode='w')
     fh.setLevel(DEBUG)
     fh.setFormatter(fmt_log)
