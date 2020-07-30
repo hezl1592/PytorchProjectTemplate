@@ -3,54 +3,86 @@
 # Author  : zlich
 # Filename: train_temp.py
 import torch
+import torch.nn as nn
+from torch.utils.data import DataLoader
 # from utils.print_utils import *
 import os
-from utils.train_utils import deviceSetting, savePath
+from utils.train_utils import deviceSetting, savePath, modelDeploy
 from utils.log_utils import infoLogger
-from utils.factory import get_scheduler, get_optimizer
-from model.net import parsingNet
-from getargs import getArgs
+from torch.utils.tensorboard.writer import SummaryWriter
+from utils.train_utils import train_seg, val_seg, save_checkpoint
+from model import Deeplabv3plus_Mobilenet
+from utils.optimizer import create_optimizer_
+from losses.multi import MultiClassCriterion
+from getargs import getArgs_, cfgInfo
+from data.bdd100k_drivablearea import BDD100K_Area_Seg
 import sys
 
 os.environ["CUDA_VISIBLE_DEVICES"] = '0,1,2'
 
 
-def main(argv):
+def main(argv, configPath=None):
     # arguments
-    args = getArgs(argv=argv)
+    args = getArgs_(argv, configPath)
     saveDir = savePath(args)
-    logger = infoLogger(log_dir=saveDir, name=args.model)
+    logger = infoLogger(logdir=saveDir, name=args.model)
+
+    logger.debug(cfgInfo(args))
     logger.info("CheckPoints path: {}".format(saveDir))
     logger.debug("Model Name: {}".format(args.model))
-    logger.warning("Model Name: {}".format(args.model))
-    num_gpus, device = deviceSetting(logger=logger)
+
+    image_augmenter = None
+    train_dataset = BDD100K_Area_Seg(base_dir=args.dataPath, split='train', target_size=args.size)
+    valid_dataset = BDD100K_Area_Seg(base_dir=args.dataPath, split='val', target_size=args.size)
+
+    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True,
+                              num_workers=args.num_worker, pin_memory=True)
+    valid_loader = DataLoader(valid_dataset, batch_size=args.batch_size, shuffle=False,
+                              num_workers=args.num_worker, pin_memory=True)
+
+    args.num_gpus, args.device = deviceSetting(logger=logger, device=args.device)
     # model
-    model = parsingNet()
+    model = Deeplabv3plus_Mobilenet(args.output_channels, output_stride=args.output_stride)
 
-    # data
-    trainLoader =
+    optimizer, scheduler = create_optimizer_(model, args)
+    loss_fn = MultiClassCriterion(loss_type=args.loss_type, ignore_index=args.ignore_index)
+    model, trainData = modelDeploy(args, model, optimizer)
 
-    # optimizer
-    optimizer = get_optimizer(net=model, cfg=args)
-    scheduler = get_scheduler(optimizer, cfg=args, len())
+    tensorLogger = SummaryWriter(log_dir=os.path.join(saveDir, 'runs'), filename_suffix=args.model)
+    logger.info("Tensorboard event log saved in {}".format(tensorLogger.log_dir))
 
+    logger.info('Start training...')
+    # global_step = 0
+    start_epoch = trainData['epoch']
 
+    num_classes = args.output_channels
+    extra_info_ckpt = '{}_{}_{}'.format(args.model, args.size[0], args.size[1])
+    for i_epoch in range(start_epoch, args.max_epoch):
+        lossList, miouList = train_seg(model, train_loader, i_epoch, optimizer, loss_fn,
+                                       num_classes, logger, tensorLogger, args=args)
+        scheduler.step()
+        trainData['loss'].extend(lossList)
+        trainData['miou'].extend(miouList)
 
-    if num_gpus >= 1:
-        from torch.nn.parallel import DataParallel
-        model = DataParallel(model)
-        model = model.cuda()
-        loss_fn = loss_fn.cuda()
+        valLoss, valMiou = val_seg(model, valid_loader, i_epoch, loss_fn,
+                                   num_classes, logger, tensorLogger, args=args)
+        trainData['val'].append([valLoss, valMiou])
+        if valMiou > trainData['bestMiou']:
+            trainData['bestMiou'] = valMiou
+        best = valMiou > trainData['bestMiou']
 
-    if torch.backends.cudnn.is_available():
-        import torch.backends.cudnn as cudnn
-        cudnn.benchmark = True
-        cudnn.deterministic = True
+        weights_dict = model.module.state_dict() if args.device == 'cuda' else model.state_dict()
 
-    # if args.resume:
+        save_checkpoint({'trainData': trainData,
+                         'model': weights_dict,
+                         'optimizer': optimizer.state_dict(),
+                         }, is_best=best, dir=saveDir, extra_info=extra_info_ckpt, miou_val=valMiou)
+
+    tensorLogger.close()
 
 
 if __name__ == '__main__':
-    main(sys.argv)
+    configPath = 'config/deeplabv3p_mobilenetv2.yaml'
+    main(sys.argv, configPath)
 
     # print(args)
