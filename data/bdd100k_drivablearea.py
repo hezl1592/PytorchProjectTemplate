@@ -29,9 +29,11 @@ class BDD100K_Area_Seg(Dataset):
         assert len(self.img_paths) == len(self.lbl_paths), "image num erro"
 
         # Resize
-        self.size = target_size
+
+        # print(type(self.size), self.size)
         if isinstance(target_size, str):
             target_size = eval(target_size)
+        self.size = target_size
 
         # Augment
         if self.split == 'train':
