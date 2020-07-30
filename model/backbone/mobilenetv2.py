@@ -27,7 +27,7 @@ def Conv_1x1_bn(inChannel, outChannel):
 
 
 class InvertedResidual(nn.Module):
-    def __init__(self, inp, oup, stride, expand_ratio):
+    def __init__(self, inp, oup, stride, expand_ratio=6):
         super(InvertedResidual, self).__init__()
         assert stride in [1, 2]
 
@@ -82,9 +82,9 @@ class bottleneck(nn.Module):
         return x
 
 
-class MobileNetV2_3feature(nn.Module):
-    def __init__(self):
-        super(MobileNetV2_3feature, self).__init__()
+class MobileNetV2(nn.Module):
+    def __init__(self, out_stride=32):
+        super(MobileNetV2, self).__init__()
         # setting of inverted residual blocks
         self.cfgs = [
             # t, c, n, s
@@ -96,6 +96,28 @@ class MobileNetV2_3feature(nn.Module):
             [6, 160, 3, 2],
             [6, 320, 1, 1],
         ]
+        if out_stride == 8:
+            self.cfgs = [
+                # t, c, n, s
+                [1, 16, 1, 1],
+                [6, 24, 2, 2],
+                [6, 32, 3, 2],
+                [6, 64, 4, 1],
+                [6, 96, 3, 1],
+                [6, 160, 3, 1],
+                [6, 320, 1, 1],
+            ]
+        if out_stride == 16:
+            self.cfgs = [
+                # t, c, n, s
+                [1, 16, 1, 1],
+                [6, 24, 2, 2],
+                [6, 32, 3, 2],
+                [6, 64, 4, 2],
+                [6, 96, 3, 1],
+                [6, 160, 3, 1],
+                [6, 320, 1, 1],
+            ]
         input_channel = 32
         self.baselayer = Conv_3x3_bn(3, input_channel, 2)
         self.bottleneck1 = bottleneck(32, self.cfgs[0])
@@ -106,20 +128,20 @@ class MobileNetV2_3feature(nn.Module):
         self.bottleneck6 = bottleneck(96, self.cfgs[5])
         self.bottleneck7 = bottleneck(160, self.cfgs[6])
 
-        self.conv = Conv_1x1_bn(320, 1280)
+        # self.conv = Conv_1x1_bn(320, 1280)
         self._initialize_weights()
 
     def forward(self, x):
         x = self.baselayer(x)
         x = self.bottleneck1(x)
         x = self.bottleneck2(x)
-        x_8 = self.bottleneck3(x)
-        x = self.bottleneck4(x_8)
-        x_16 = self.bottleneck5(x)
-        x = self.bottleneck6(x_16)
+        x = self.bottleneck3(x)
+        x = self.bottleneck4(x)
+        x = self.bottleneck5(x)
+        x = self.bottleneck6(x)
         x = self.bottleneck7(x)
-        x = self.conv(x)
-        return x_8, x_16, x
+        # x = self.conv(x)
+        return x
 
     def _initialize_weights(self):
         for m in self.modules():
@@ -136,9 +158,58 @@ class MobileNetV2_3feature(nn.Module):
                 m.bias.data.zero_()
 
 
+class MobileNetV2_2Feature(MobileNetV2):
+    def __init__(self, out_stride=16):
+        super(MobileNetV2_2Feature, self).__init__(out_stride)
+
+    def forward(self, x):
+        x = self.baselayer(x)
+        x = self.bottleneck1(x)
+        x_4 = self.bottleneck2(x)
+        x = self.bottleneck3(x_4)
+        x = self.bottleneck4(x)
+        x = self.bottleneck5(x)
+        x = self.bottleneck6(x)
+        x = self.bottleneck7(x)
+        return x, x_4
+
+
+class MobileNetV2_3feature(MobileNetV2):
+    def __init__(self):
+        super(MobileNetV2_3feature, self).__init__()
+
+    def forward(self, x):
+        x = self.baselayer(x)
+        x = self.bottleneck1(x)
+        x = self.bottleneck2(x)
+        x_8 = self.bottleneck3(x)
+        x = self.bottleneck4(x_8)
+        x_16 = self.bottleneck5(x)
+        x = self.bottleneck6(x_16)
+        x = self.bottleneck7(x)
+        # x = self.conv(x)
+        return x_8, x_16, x
+
+
 if __name__ == '__main__':
-    inputTensor = torch.rand(1, 3, 224, 224)
+    from model.model_test_common import *
+
+    inputTensor = torch.rand(1, 3, 720, 1280)
+    # inputTensor = torch.rand(1, 3, 224, 224)
     model = MobileNetV2_3feature()
-    from utils.model_utils import modelParams_FLOPs
+    from model.model_utils import modelParams_FLOPs, modelTime
+
     # net = MobileNetV2_3feature()
     modelParams_FLOPs(model, inputTensor)
+
+    net = MobileNetV2()
+    modelParams_FLOPs(net, inputTensor)
+    modelTime(net, inputTensor)
+
+    net_8 = MobileNetV2(out_stride=8)
+    modelParams_FLOPs(net_8, inputTensor)
+    modelTime(net_8, inputTensor)
+
+    net_16 = MobileNetV2(out_stride=16)
+    modelParams_FLOPs(net_16, inputTensor)
+    modelTime(net_16, inputTensor)

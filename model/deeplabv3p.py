@@ -104,11 +104,11 @@ class SPPDecoder(nn.Module):
 
 
 class Deeplabv3plus_Mobilenet(nn.Module):
-    def __init__(self, output_channels=19, enc_type='xception65', dec_type='aspp', output_stride=8):
+    def __init__(self, output_channels=19, output_stride=8):
         super().__init__()
         self.output_channels = output_channels
-        self.enc_type = enc_type
-        self.dec_type = dec_type
+        # self.enc_type = enc_type
+        # self.dec_type = dec_type
 
         self.encoder = MobileNetV2_2Feature(out_stride=output_stride)
         self.spp = ASPP(320, 256, 16)
@@ -120,7 +120,7 @@ class Deeplabv3plus_Mobilenet(nn.Module):
         x = self.spp(x)
         x = self.decoder(x, low_level_feat)
         x = self.logits(x)
-        
+
         return F.interpolate(x, size=inputs.shape[2:], mode='bilinear', align_corners=True)
 
     def freeze_bn(self):

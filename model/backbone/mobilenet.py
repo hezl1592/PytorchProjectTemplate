@@ -27,7 +27,8 @@ class ExpandedConv(nn.Module):
 
         # depthwise
         self.depthwise = nn.Sequential(OrderedDict(
-            [('conv', nn.Conv2d(middle_channels, middle_channels, 3, stride, dilation, dilation, groups=middle_channels, bias=False)),
+            [('conv', nn.Conv2d(middle_channels, middle_channels, 3, stride, dilation, dilation, groups=middle_channels,
+                                bias=False)),
              ('bn', nn.BatchNorm2d(middle_channels)),
              ('relu', nn.ReLU6(inplace=True))
              ]))
@@ -104,8 +105,8 @@ class MobileNetV2(nn.Module):
         return x
 
     def load_pretrained_model(self, model_path):
-        #self.load_state_dict(torch.load(model_path))
-        #print(f'Load from {model_path}!')
+        # self.load_state_dict(torch.load(model_path))
+        # print(f'Load from {model_path}!')
         pretrain_dict = model_zoo.load_url('http://jeff95.me/models/mobilenet_v2-6a65762b.pth')
         model_dict = {}
         state_dict = self.state_dict()
@@ -115,3 +116,52 @@ class MobileNetV2(nn.Module):
         state_dict.update(model_dict)
         self.load_state_dict(state_dict)
         print(f'Load from model_zoo!')
+
+
+class MobileNetV2_ND(MobileNetV2):
+    def __init__(self, pretrained=False, model_path='../model/mobilenetv2_encoder/model.pth'):
+        super(MobileNetV2_ND, self).__init__(pretrained, model_path)
+
+        self.conv = nn.Conv2d(3, 32, 3, stride=2, padding=1, bias=False)
+        self.bn = nn.BatchNorm2d(32)
+        self.relu = nn.ReLU6()
+
+        self.block0 = ExpandedConv(32, 16, expand_ratio=1)
+
+        self.block1 = ExpandedConv(16, 24, stride=2)
+        self.block2 = ExpandedConv(24, 24, skip_connection=True)
+
+        self.block3 = ExpandedConv(24, 32, stride=2)
+        self.block4 = ExpandedConv(32, 32, skip_connection=True)
+        self.block5 = ExpandedConv(32, 32, skip_connection=True)
+
+        self.block6 = ExpandedConv(32, 64)
+        self.block7 = ExpandedConv(64, 64, dilation=1, skip_connection=True)
+        self.block8 = ExpandedConv(64, 64, dilation=1, skip_connection=True)
+        self.block9 = ExpandedConv(64, 64, dilation=1, skip_connection=True)
+
+        self.block10 = ExpandedConv(64, 96, dilation=1)
+        self.block11 = ExpandedConv(96, 96, dilation=1, skip_connection=True)
+        self.block12 = ExpandedConv(96, 96, dilation=1, skip_connection=True)
+
+        self.block13 = ExpandedConv(96, 160, dilation=1)
+        self.block14 = ExpandedConv(160, 160, dilation=1, skip_connection=True)
+        self.block15 = ExpandedConv(160, 160, dilation=1, skip_connection=True)
+
+        self.block16 = ExpandedConv(160, 320, dilation=1)
+
+
+if __name__ == '__main__':
+    from model.model_test_common import *
+    from model.model_utils import modelParams_FLOPs, modelTime
+
+    model = MobileNetV2(pretrained=False)
+    modelParams_FLOPs(model, inputTensor)
+    modelTime(model, inputTensor)
+    # print(model)
+
+    # modelParams_FLOPs(model, inputTensor, True)
+
+    model = MobileNetV2_ND(pretrained=False)
+    modelParams_FLOPs(model, inputTensor)
+    modelTime(model, inputTensor)

@@ -8,14 +8,16 @@ import torchvision.models as models
 import os
 from utils.print_utils import print_info_message
 import time
-import math
+import torchsummary
 
 
-def modelParams_FLOPs(model, inputTensor):
+def modelParams_FLOPs(model, inputTensor, showSummary=False):
     model, inputTensor = (model.cuda(), inputTensor.cuda()) \
         if torch.cuda.is_available() else (model, inputTensor)
 
     input_size = tuple(inputTensor.shape[1:])
+    if showSummary:
+        torchsummary.summary(model, input_size, batch_size=1)
     flops, params = thop.profile(model=model, inputs=(inputTensor,))
 
     print_info_message("FLOPS: {:.4f} Million".format(flops / 1e6))
@@ -29,6 +31,7 @@ def modelTime(model, inputTensor):
 
     model.eval()
     timeList = []
+    print_info_message("input size: {}".format(inputTensor.shape))
     with torch.no_grad():
         for i in range(102):
             init_time = time.time()
@@ -37,6 +40,7 @@ def modelTime(model, inputTensor):
 
     timeList = timeList[1:-1]
     averageTime = sum(timeList) / len(timeList)
+    print_info_message("input size: {}".format(out.shape))
     print_info_message("Run {} times, average inference time: {:.5f}sec".format(len(timeList), averageTime))
     print()
 
