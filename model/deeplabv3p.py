@@ -5,8 +5,9 @@
 
 import torch
 import torch.nn as nn
-import torch.functional as F
+import torch.nn.functional as F
 from collections import OrderedDict
+from model.backbone import MobileNetV2, MobileNetV2_2Feature
 
 
 class separableConv2d(nn.Module):
@@ -46,7 +47,6 @@ class ASPP(nn.Module):
             dilations = [12, 24, 36]
         else:
             raise NotImplementedError
-        # dilations = [6, 12, 18]
 
         self.aspp0 = nn.Sequential(OrderedDict([('conv', nn.Conv2d(in_channels, out_channels, 1, bias=False)),
                                                 ('bn', nn.BatchNorm2d(out_channels)),
@@ -69,13 +69,11 @@ class ASPP(nn.Module):
         pool = self.image_pooling(x)
 
         pool = F.interpolate(pool, size=x.shape[2:], mode='bilinear', align_corners=True)
-
         x0 = self.aspp0(x)
         x1 = self.aspp1(x)
         x2 = self.aspp2(x)
         x3 = self.aspp3(x)
         x = torch.cat((pool, x0, x1, x2, x3), dim=1)
-        del x0, x1, x2, x3
 
         x = self.conv(x)
         x = self.bn(x)
@@ -84,6 +82,27 @@ class ASPP(nn.Module):
 
         return x
 
+
+class SPPDecoder(nn.Module):
+    def __init__(self, in_channels, reduced_layer_num=48):
+        super().__init__()
+        self.conv = nn.Conv2d(in_channels, reduced_layer_num, 1, bias=False)
+        self.bn = nn.BatchNorm2d(reduced_layer_num)
+        self.relu = nn.ReLU(inplace=True)
+        self.sep1 = separableConv2d(256 + reduced_layer_num, 256, relu_first=False)
+        self.sep2 = separableConv2d(256, 256, relu_first=False)
+
+    def forward(self, x, low_level_feat):
+        x = F.interpolate(x, size=low_level_feat.shape[2:], mode='bilinear', align_corners=True)
+        low_level_feat = self.conv(low_level_feat)
+        low_level_feat = self.bn(low_level_feat)
+        low_level_feat = self.relu(low_level_feat)
+        x = torch.cat((x, low_level_feat), dim=1)
+        x = self.sep1(x)
+        x = self.sep2(x)
+        return x
+
+
 class Deeplabv3plus_Mobilenet(nn.Module):
     def __init__(self, output_channels=19, enc_type='xception65', dec_type='aspp', output_stride=8):
         super().__init__()
@@ -91,30 +110,18 @@ class Deeplabv3plus_Mobilenet(nn.Module):
         self.enc_type = enc_type
         self.dec_type = dec_type
 
-        self.encoder = create_encoder(enc_type, output_stride=output_stride, pretrained=False)
-        if enc_type == 'mobilenetv2':
-            self.spp = create_mspp(dec_type)
-        else:
-            self.spp, self.decoder = create_spp(dec_type, output_stride=output_stride)
+        self.encoder = MobileNetV2_2Feature(out_stride=output_stride)
+        self.spp = ASPP(320, 256, 16)
+        self.decoder = SPPDecoder(24)
         self.logits = nn.Conv2d(256, output_channels, 1)
 
     def forward(self, inputs):
-        #print("...", inputs.size())
-        if self.enc_type == 'mobilenetv2':
-            x = self.encoder(inputs)
-            # print(r"F:\PythonLearn\pytorch-segmentation-master\src\models\net.py")
-            #print("fea:\t", x.size())
-            x = self.spp(x)
-            # print("x1:\t", x.size())
-            x = self.logits(x)
-            # print(x.size())
-            return x
-        else:
-            x, low_level_feat = self.encoder(inputs)
-            x = self.spp(x)
-            x = self.decoder(x, low_level_feat)
-            x = self.logits(x)
-            return x
+        x, low_level_feat = self.encoder(inputs)
+        x = self.spp(x)
+        x = self.decoder(x, low_level_feat)
+        x = self.logits(x)
+        
+        return F.interpolate(x, size=inputs.shape[2:], mode='bilinear', align_corners=True)
 
     def freeze_bn(self):
         for m in self.modules():
@@ -138,5 +145,10 @@ class Deeplabv3plus_Mobilenet(nn.Module):
 
 
 if __name__ == '__main__':
-    net = ASPP()
-    print(net.state_dict().keys())
+    from model.model_test_common import *
+    from model.model_utils import *
+
+    model = Deeplabv3plus_Mobilenet(output_stride=16, output_channels=3)
+
+    # modelParams_FLOPs(model, inputTensor)
+    modelTime(model, inputTensor)

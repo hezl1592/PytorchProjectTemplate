@@ -3,8 +3,8 @@
 # Author  : zlich
 # Filename: getargs.py
 import argparse
-import yaml
 import sys
+from utils.train_utils import readYAML
 
 
 def getArgs(argv):
@@ -23,6 +23,7 @@ def getArgs(argv):
     parser.add_argument('--workers', default=4, type=int, help='number of data loading workers')
 
     parser.add_argument('--resume', default=None, type=str, help='path to checkpoint to resume from')
+    parser.add_argument('--finetune', default=None, type=str, help='path to finetune')
     parser.add_argument('--freeze_bn', default=False, action='store_true', help='Freeze BN params or not')
 
     args = parser.parse_args()
