@@ -15,7 +15,7 @@ import os
 from .print_utils import print_info_message
 
 
-def deviceSetting(logger, device=None):
+def deviceSetting(logger=None, device=None):
     if not device:
         pass
     else:
@@ -23,9 +23,15 @@ def deviceSetting(logger, device=None):
     num_gpus = torch.cuda.device_count()
     device = 'cuda' if num_gpus > 0 else 'cpu'
     if num_gpus >= 1:
-        logger.info("GPU found, device: {}, number: {}.".format(device, num_gpus))
+        if logger:
+            logger.info("GPU found, device: {}, number: {}.".format(device, num_gpus))
+        else:
+            print_info_message("GPU found, device: {}, number: {}.".format(device, num_gpus))
     else:
-        logger.warning("No GPU found, device: CPU.")
+        if logger:
+            logger.warning("No GPU found, device: CPU.")
+        else:
+            print_info_message("No GPU found, device: CPU.")
         # print_warning_message()
     return num_gpus, torch.device(device)
 
@@ -54,7 +60,7 @@ def readYAML(path):
         return None
 
 
-def modelDeploy(args, model, optimizer):
+def modelDeploy(args, model, optimizer, scheduler, logger):
     if args.num_gpus >= 1:
         from torch.nn.parallel import DataParallel
         model = DataParallel(model)
@@ -83,8 +89,13 @@ def modelDeploy(args, model, optimizer):
 
             # stop point
             trainData = checkpoint['trainData']
+            trainData['epoch'] = 9
+            for i in range(trainData['epoch']):
+                scheduler.step()
+            # print(trainData)
 
-            logger.info("=> loaded checkpoint '{}' (epoch {})".format(args.resume, checkpoint['epoch']))
+            logger.info("=> loaded checkpoint '{}' (epoch {})".format(args.resume, trainData['epoch']))
+
         else:
             logger.error("=> no checkpoint found at '{}'".format(args.resume))
             assert False, "=> no checkpoint found at '{}'".format(args.resume)
@@ -94,8 +105,10 @@ def modelDeploy(args, model, optimizer):
             logger.info("=> finetuning checkpoint '{}'".format(args.finetune))
             state_all = torch.load(args.finetune, map_location='cpu')['model']
             state_clip = {}  # only use backbone parameters
+            # print(model.state_dict().keys())
             for k, v in state_all.items():
                 state_clip[k] = v
+            # print(state_clip.keys())
             model.load_state_dict(state_clip, strict=False)
         else:
             logger.warning("finetune is not a file.")
@@ -202,17 +215,20 @@ def val_seg(model, dataLoader, epoch, loss_fn, num_classes, logger, tensorLogger
 
 
 def save_checkpoint(state, is_best, dir, extra_info='model', epoch=-1, miou_val=0, logger=None):
-    check_pt_file = dir + os.sep + str(extra_info) + '_checkpoint_{}_{:6f}.pth.tar'.format(state['trainData']['epoch'], miou_val)
+    check_pt_file = dir + os.sep + str(extra_info) + '_checkpoint_{}_{:6f}.pth.tar'.format(
+        state['trainData']['epoch'] + 1,
+        miou_val)
     torch.save(state, check_pt_file)
     if is_best:
         torch.save(state['model'],
-                   dir + os.sep + str(extra_info) + '_best_{}_{:6f}.pth'.format(state['trainData']['epoch'], miou_val))
+                   dir + os.sep + str(extra_info) + '_best_{}_{:6f}.pth'.format(state['trainData']['epoch'] + 1,
+                                                                                miou_val))
     if epoch != -1:
         torch.save(state['model'], dir + os.sep + str(extra_info) + '_ep_' + str(epoch) + '.pth')
     if logger:
-        logger.info('Train | {:2d} | Checkpoint: {}'.format(state['trainData']['epoch'], check_pt_file))
+        logger.info('Train | {:2d} | Checkpoint: {}'.format(state['trainData']['epoch'] + 1, check_pt_file))
     else:
-        print_info_message('Train | {:2d} | Checkpoint: {}'.format(state['trainData']['epoch'], check_pt_file))
+        print_info_message('Train | {:2d} | Checkpoint: {}'.format(state['trainData']['epoch'] + 1, check_pt_file))
 
 
 if __name__ == '__main__':

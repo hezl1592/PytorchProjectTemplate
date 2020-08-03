@@ -2,23 +2,22 @@
 # Time    : 2020/7/15 13:07
 # Author  : zlich
 # Filename: train_temp.py
-import torch
-import torch.nn as nn
 from torch.utils.data import DataLoader
-# from utils.print_utils import *
-import os
+from torch.utils.tensorboard.writer import SummaryWriter
+from model import Deeplabv3plus_Mobilenet
 from utils.train_utils import deviceSetting, savePath, modelDeploy
 from utils.log_utils import infoLogger
-from torch.utils.tensorboard.writer import SummaryWriter
 from utils.train_utils import train_seg, val_seg, save_checkpoint
-from model import Deeplabv3plus_Mobilenet
 from utils.optimizer import create_optimizer_
 from losses.multi import MultiClassCriterion
-from getargs import getArgs_, cfgInfo
 from data.bdd100k_drivablearea import BDD100K_Area_Seg
+from getargs import getArgs_, cfgInfo
+import numpy as np
 import sys
+import os
 
-os.environ["CUDA_VISIBLE_DEVICES"] = '0,1,2'
+
+# os.environ["CUDA_VISIBLE_DEVICES"] = '0,1,2'
 
 
 def main(argv, configPath=None):
@@ -46,7 +45,7 @@ def main(argv, configPath=None):
 
     optimizer, scheduler = create_optimizer_(model, args)
     loss_fn = MultiClassCriterion(loss_type=args.loss_type, ignore_index=args.ignore_index)
-    model, trainData = modelDeploy(args, model, optimizer)
+    model, trainData = modelDeploy(args, model, optimizer, scheduler, logger)
 
     tensorLogger = SummaryWriter(log_dir=os.path.join(saveDir, 'runs'), filename_suffix=args.model)
     logger.info("Tensorboard event log saved in {}".format(tensorLogger.log_dir))
@@ -54,10 +53,14 @@ def main(argv, configPath=None):
     logger.info('Start training...')
     # global_step = 0
     start_epoch = trainData['epoch']
+    start_epoch = 9
 
     num_classes = args.output_channels
     extra_info_ckpt = '{}_{}_{}'.format(args.model, args.size[0], args.size[1])
     for i_epoch in range(start_epoch, args.max_epoch):
+        if i_epoch >= 29:
+            optimizer.param_groups[0]["lr"] = np.float64(0.00001)
+        trainData['epoch'] = i_epoch
         lossList, miouList = train_seg(model, train_loader, i_epoch, optimizer, loss_fn,
                                        num_classes, logger, tensorLogger, args=args)
         scheduler.step()
@@ -67,16 +70,17 @@ def main(argv, configPath=None):
         valLoss, valMiou = val_seg(model, valid_loader, i_epoch, loss_fn,
                                    num_classes, logger, tensorLogger, args=args)
         trainData['val'].append([valLoss, valMiou])
+
+        best = valMiou > trainData['bestMiou']
         if valMiou > trainData['bestMiou']:
             trainData['bestMiou'] = valMiou
-        best = valMiou > trainData['bestMiou']
 
         weights_dict = model.module.state_dict() if args.device == 'cuda' else model.state_dict()
 
         save_checkpoint({'trainData': trainData,
                          'model': weights_dict,
                          'optimizer': optimizer.state_dict(),
-                         }, is_best=best, dir=saveDir, extra_info=extra_info_ckpt, miou_val=valMiou)
+                         }, is_best=best, dir=saveDir, extra_info=extra_info_ckpt, miou_val=valMiou, logger=logger)
 
     tensorLogger.close()
 
