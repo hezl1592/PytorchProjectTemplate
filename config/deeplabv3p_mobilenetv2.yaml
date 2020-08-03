@@ -33,7 +33,7 @@ ignore_index: 255
 #Optimizer:
 optimizer: 'sgd'
 momentum: 0.9
-weight_decay: 0.1
+weight_decay: 0.00004
 base_lr: 0.007
 t_max: 30
 
