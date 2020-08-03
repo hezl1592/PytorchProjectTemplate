@@ -1,0 +1,39 @@
+# common
+device: ''
+logdir: '../checkpoints'
+
+#Net:
+model: 'deeplabv3+'
+enc_type: 'mobilenetv2'
+dec_type: 'aspp'
+output_stride: 16
+output_channels: 3
+
+#Data:
+dataPath: '/home/hezl/laneDatasets/Bdd100k'
+dataset: 'bdd100k'
+size: (640, 360)
+batch_size: 16
+num_worker: 4
+
+#Train:
+max_epoch: 60
+fp16: False #False or True
+resume: ''
+finetune: ''
+freeze_bn: False   #False or True
+pretrained_path: False  #False or True
+amp: False  #False or True
+parallel: False #False or True
+
+#Loss:
+loss_type: 'Lovasz'
+ignore_index: 255
+
+#Optimizer:
+optimizer: 'sgd'
+momentum: 0.9
+weight_decay: 0.00004
+base_lr: 0.007
+t_max: 30
+
