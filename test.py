@@ -1,16 +1,9 @@
 import torch
 import time
-import numpy
-from torch.utils.data import DataLoader
-from torch.utils.tensorboard.writer import SummaryWriter
 from model import Deeplabv3plus_Mobilenet
 from utils.train_utils import deviceSetting, savePath
-from utils.log_utils import infoLogger
 from utils.test_utils import modelDeploy, ImageGet
-from utils.optimizer import create_optimizer_
-from losses.multi import MultiClassCriterion
-from data.bdd100k_drivablearea import BDD100K_Area_Seg
-from getargs import getArgs_, cfgInfo
+from getargs import getArgs_
 import sys
 
 
