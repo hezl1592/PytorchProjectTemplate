@@ -28,7 +28,7 @@ def modelDeploy(args, model):
     return model
 
 
-def cv2Tensor(image, size):
+def cv2Tensor(image, size=(640,360)):
     image_source = cv2.resize(image, size)
     image_tensor = torch.from_numpy(image_source.transpose((2, 0, 1)))
     image_tensor = image_tensor.float().div(255)
