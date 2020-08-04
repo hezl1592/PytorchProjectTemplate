@@ -60,7 +60,6 @@ def getArgs(argv):
 
 
 def getArgs_(argv, configPath=None):
-    # 该函数仅通过
     sys.argv = argv
     if len(argv) == 1:
         if not configPath:
