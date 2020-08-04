@@ -8,6 +8,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from collections import OrderedDict
 from model.backbone import MobileNetV2, MobileNetV2_2Feature
+import math
 
 
 class separableConv2d(nn.Module):
@@ -104,7 +105,7 @@ class SPPDecoder(nn.Module):
 
 
 class Deeplabv3plus_Mobilenet(nn.Module):
-    def __init__(self, output_channels=19, output_stride=8):
+    def __init__(self, output_channels=3, output_stride=16):
         super().__init__()
         self.output_channels = output_channels
         # self.enc_type = enc_type
@@ -114,6 +115,7 @@ class Deeplabv3plus_Mobilenet(nn.Module):
         self.spp = ASPP(320, 256, 16)
         self.decoder = SPPDecoder(24)
         self.logits = nn.Conv2d(256, output_channels, 1)
+        self._initialize_weights()
 
     def forward(self, inputs):
         x, low_level_feat = self.encoder(inputs)
@@ -122,6 +124,21 @@ class Deeplabv3plus_Mobilenet(nn.Module):
         x = self.logits(x)
 
         return F.interpolate(x, size=inputs.shape[2:], mode='bilinear', align_corners=True)
+
+    def _initialize_weights(self):
+        for i, m in enumerate(self.modules()):
+            # print("{:3d}".format(i), m)
+            if isinstance(m, nn.Conv2d):
+                n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
+                m.weight.data.normal_(0, math.sqrt(2. / n))
+                if m.bias is not None:
+                    m.bias.data.zero_()
+            elif isinstance(m, nn.BatchNorm2d):
+                m.weight.data.fill_(1)
+                m.bias.data.zero_()
+            elif isinstance(m, nn.Linear):
+                m.weight.data.normal_(0, 0.01)
+                m.bias.data.zero_()
 
     def freeze_bn(self):
         for m in self.modules():
