@@ -69,6 +69,9 @@ class ASPP(nn.Module):
     def forward(self, x):
         pool = self.image_pooling(x)
 
+        # print("aspp:", x.size())
+        # 630,360
+        # pool = F.interpolate(pool, size=(23, 40), mode='bilinear', align_corners=True)
         pool = F.interpolate(pool, size=x.shape[2:], mode='bilinear', align_corners=True)
         x0 = self.aspp0(x)
         x1 = self.aspp1(x)
@@ -94,7 +97,10 @@ class SPPDecoder(nn.Module):
         self.sep2 = separableConv2d(256, 256, relu_first=False)
 
     def forward(self, x, low_level_feat):
+        # print("decoder:", low_level_feat.size())
+        # 640,360
         x = F.interpolate(x, size=low_level_feat.shape[2:], mode='bilinear', align_corners=True)
+        # x = F.interpolate(x, size=(90, 160), mode='bilinear', align_corners=True)
         low_level_feat = self.conv(low_level_feat)
         low_level_feat = self.bn(low_level_feat)
         low_level_feat = self.relu(low_level_feat)
@@ -123,7 +129,9 @@ class Deeplabv3plus_Mobilenet(nn.Module):
         x = self.decoder(x, low_level_feat)
         x = self.logits(x)
 
+        # 640,360
         return F.interpolate(x, size=inputs.shape[2:], mode='bilinear', align_corners=True)
+        # return F.interpolate(x, size=(360,640), mode='bilinear', align_corners=True)
 
     def _initialize_weights(self):
         for i, m in enumerate(self.modules()):
