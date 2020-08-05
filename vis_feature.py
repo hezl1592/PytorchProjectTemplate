@@ -41,7 +41,7 @@ def feature_imshow(inp, title=None):
     #
     # inp = np.clip(inp, 0, 1)
 
-    plt.imshow(inp,cmap='jet')
+    plt.imshow(inp, cmap='jet')
 
     if title is not None:
         plt.title(title)
