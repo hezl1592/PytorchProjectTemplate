@@ -89,7 +89,6 @@ def modelDeploy(args, model, optimizer, scheduler, logger):
 
             # stop point
             trainData = checkpoint['trainData']
-            trainData['epoch'] = 9
             for i in range(trainData['epoch']):
                 scheduler.step()
             # print(trainData)

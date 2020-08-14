@@ -12,6 +12,16 @@ _mask = np.array([[0, 0, 0],  # black
                   [0, 255, 255]])  # yellow in BGR color system
 
 
+def timeit(func):
+    def newFunc(*args, **args2):
+        t0 = time.time()
+        back = func(*args, **args2)
+        print("%.3fms for {%s}" % ((time.time() - t0) * 1000, func.__name__), end=' ')
+        return back
+
+    return newFunc
+
+
 def modelDeploy(args, model):
     if args.modelpath and os.path.isfile(args.modelpath):
         params = torch.load(args.modelpath, map_location=torch.device('cpu'))
@@ -28,7 +38,7 @@ def modelDeploy(args, model):
     return model
 
 
-def cv2Tensor(image, size=(640,360)):
+def cv2Tensor(image, size=(640, 360)):
     image_source = cv2.resize(image, size)
     image_tensor = torch.from_numpy(image_source.transpose((2, 0, 1)))
     image_tensor = image_tensor.float().div(255)
@@ -38,46 +48,53 @@ def cv2Tensor(image, size=(640,360)):
 
 
 class ImageGet(object):
-    def __init__(self, source, output, size=(640, 360), queueLen=1, video=False):
+    def __init__(self, sourcePath, outputPath, size=(640, 360), queueLen=1,
+                 save_image=False, save_video=False, fps=25, videoSize=(640, 320), videoName='vis'):
         super(ImageGet, self).__init__()
         self.finish_signal = 0
-        self.source = source
+        self.source = sourcePath
+        self.output = outputPath
         self.size = size
         self.readQueue = Queue(queueLen)
-        self.output = output
-        self.video = video
+        self.video = save_video
+        self.image = save_image
+        if self.video:
+            self.fps = fps
+            self.videoSize = videoSize
+            self.videoName = videoName
+
         print("Reading images from ", self.source)
         if os.path.isfile(self.source):
             if self.source.endswith('.png') or self.source.endswith('.jpg'):
-                self.readthread = threading.Thread(target=self._imageGet, args=(self.source, self.readQueue))
+                self.video = False
+                self.readThread = threading.Thread(target=self._imageGet, args=(self.source, self.readQueue))
             elif self.source.endswith('.avi') or self.source.endswith('.mp4'):
-                self.video = True
-                self.readthread = threading.Thread(target=self._videoGet, args=(self.source, self.readQueue))
+                self.readThread = threading.Thread(target=self._videoGet, args=(self.source, self.readQueue))
         elif os.path.isdir(self.source):
-            self.readthread = threading.Thread(target=self._imageDirGet, args=(self.source, self.readQueue))
+            self.readThread = threading.Thread(target=self._imageDirGet, args=(self.source, self.readQueue))
         else:
             print("please Check!")
             exit(-1)
 
-        self.saveQueue = Queue()
+        self.saveQueue = Queue(100)
         self.saveThread = threading.Thread(target=self._Imagesave, args=(self.output, self.saveQueue))
 
     def _videoGet(self, Path, read_queue):
         cap = cv2.VideoCapture(Path)
-
+        num = 0
         while cap.isOpened():
             _, image_source = cap.read()
             try:
-                while read_queue.full():
+                while read_queue.full() and self.saveQueue.full():
                     time.sleep(0.01)
                 else:
+                    num += 1
+                    name = "{:06d}.jpg".format(num)
                     image_source, image_tensor = cv2Tensor(image_source, self.size)
-                    read_queue.put((image_source, image_tensor))
+                    read_queue.put((name, image_source, image_tensor))
             except:
                 print("video done.")
                 break
-            # if cv2.waitKey(30) & 0xFF == ord('q'):
-            #     break
             if self.finish_signal == 1:
                 break
         self.finish_signal = 1
@@ -86,12 +103,13 @@ class ImageGet(object):
 
     def _imageGet(self, Path, read_queue):
         image = cv2.imread(Path, -1)
+        imageName = Path.split('/')[-1]
         image_source, image_tensor = cv2Tensor(image, self.size)
-        read_queue.put((image_source, image_tensor))
+        read_queue.put((imageName, image_source, image_tensor))
         self.finish_signal = 1
 
     def _imageDirGet(self, Path, read_queue):
-        for file in os.listdir(Path):
+        for file in sorted(os.listdir(Path)[:1000]):
             if self.finish_signal == 1:
                 break
 
@@ -102,7 +120,7 @@ class ImageGet(object):
                         time.sleep(0.01)
                     else:
                         image_source, image_tensor = cv2Tensor(image, self.size)
-                        read_queue.put((image_source, image_tensor))
+                        read_queue.put((file, image_source, image_tensor))
                 except:
                     print("dir done.")
                     break
@@ -111,26 +129,34 @@ class ImageGet(object):
 
     def _Imagesave(self, output, saveQueue):
         if self.video:
-            videoName = '{}/vis_out_color_640_360_2__.avi'.format(output)
+            videoName = '{}/{}.avi'.format(output, self.videoName)
             fourcc = cv2.VideoWriter_fourcc(*'MJPG')
-            vout = cv2.VideoWriter(videoName, fourcc, 30.0, (640, 1080))
-        num = 0
+            vout = cv2.VideoWriter(videoName, fourcc, self.fps, self.videoSize)
+        time.sleep(5)
         while True:
             if saveQueue.empty() and self.finish_signal:
                 break
             if not saveQueue.empty():
-                num += 1
                 try:
-                    image_source, image_pred = saveQueue.get()
+                    image_name, image_source, image_pred = saveQueue.get()
                     pred_lbl = np.array(_mask[image_pred[0]], np.uint8)
                     blend = np.bitwise_or(image_source, pred_lbl)
                     show_image = cv2.vconcat([image_source, pred_lbl, blend])
                     if self.video:
-                        vout.write(show_image)
+                        video_image = cv2.resize(show_image, self.videoSize)
+
+                    if self.video and self.image:
+                        vout.write(video_image)
+                        cv2.imwrite("{}/{}".format(output, image_name), show_image)
+                    elif self.video:
+                        vout.write(video_image)
+                    elif self.image:
+                        cv2.imwrite("{}/{}".format(output, image_name), show_image)
                     else:
-                        cv2.imwrite("{}/{:05d}.jpg".format(output, num), show_image)
+                        pass
                 except:
                     print("done")
+                    assert False
                     break
         if self.video:
             vout.release()
@@ -138,10 +164,10 @@ class ImageGet(object):
         print("save done")
 
     def start(self):
-        self.readthread.start()
+        self.readThread.start()
         self.saveThread.start()
 
     def join(self):
         self.finish_signal = 1
-        self.readthread.join()
+        self.readThread.join()
         self.saveThread.join()
