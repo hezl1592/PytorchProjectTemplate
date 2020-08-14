@@ -26,11 +26,11 @@ def main(argv, configPath=None):
     saveDir = savePath(args)
     logger = infoLogger(logdir=saveDir, name=args.model)
 
+    logger.info(argv)
     logger.debug(cfgInfo(args))
     logger.info("CheckPoints path: {}".format(saveDir))
     logger.debug("Model Name: {}".format(args.model))
 
-    image_augmenter = None
     train_dataset = BDD100K_Area_Seg(base_dir=args.dataPath, split='train', target_size=args.size)
     valid_dataset = BDD100K_Area_Seg(base_dir=args.dataPath, split='val', target_size=args.size)
 
@@ -53,7 +53,6 @@ def main(argv, configPath=None):
     logger.info('Start training...')
     # global_step = 0
     start_epoch = trainData['epoch']
-    start_epoch = 9
 
     num_classes = args.output_channels
     extra_info_ckpt = '{}_{}_{}'.format(args.model, args.size[0], args.size[1])

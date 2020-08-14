@@ -4,11 +4,7 @@
 # Filename: getargs.py
 import argparse
 import sys
-from utils.train_utils import readYAML
-from easydict import EasyDict
-import os
 import yaml
-from collections import OrderedDict
 
 
 def loadConfig(cfgPath):
